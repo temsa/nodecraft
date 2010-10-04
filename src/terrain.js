@@ -160,6 +160,9 @@ WorldTerrain.prototype.recalculateLighting = function (x, z, cb) {
 			var dx_i = x_i - lx_i, dz_i = z_i - lz_i;
 			return dchunk(dx_i, dz_i);
 		}
+
+		var highest_nontransmitting_chunk = 0;
+
 		// step 1: set everything above ground to 0xf
 		for (var dx = -1; dx <= 1; dx++) {
 			for (var dz = -1; dz <= 1; dz++) {
@@ -169,19 +172,25 @@ WorldTerrain.prototype.recalculateLighting = function (x, z, cb) {
 					chunk_data.setSkyLight(0xf);
 					chunk_data.lit = 1;
 				}
+
+				if (chunk_data.highest_nontransmitting_chunk > highest_nontransmitting_chunk) {
+					highest_nontransmitting_chunk = chunk_data.highest_nontransmitting_chunk;
+				}
 			}
 		}
 
 		var numFlooded = 0;
+
 		// step 2: find lit blocks that haven't correctly filled adjacent blocks.
 		// TODO: don't hardcode chunk size :/
 		var baseX = (x_i-1) << me.chunk_xz_shift;
 		var baseZ = (z_i-1) << me.chunk_xz_shift;
 		for (var x = 0; x < 16*3; x++) {
 			for (var z = 0; z < 16*3; z++) {
-				for (var y = 0; y < 128; y++) {
+				for (var y = 0; y < highest_nontransmitting_chunk+1; y++) {
 					// don't flood from impenetrable blocks, since they are all dark.
 					if (!isPenetrable(x+baseX, y, z+baseZ)) continue;
+
 					if (!isFlooded(x+baseX, y, z+baseZ)) {
 						floodLightFrom(x+baseX, y, z+baseZ);
 						numFlooded++;

@@ -1,5 +1,7 @@
 var sys = require('sys');
 
+var transmitsLight;
+
 var Chunk = function () {
 	this.sizeX = 16;
 	this.sizeY = 128;
@@ -7,6 +9,8 @@ var Chunk = function () {
 
 	this.sectionSize = this.sizeX * this.sizeY * this.sizeZ;
 	this.lit = 0;
+
+	this.highest_nontransmitting_chunk = 0;
 
 	this.data = new Buffer(this.sizeX * this.sizeY * this.sizeZ * 2.5);
 	for (var i = 0; i < this.data.length; i++) {
@@ -19,6 +23,10 @@ Chunk.prototype.indexOf = function (x, y, z) {
 };
 
 Chunk.prototype.setType = function (x, y, z, type) {
+	if (!transmitsLight(type) && (y > this.highest_nontransmitting_chunk)) {
+		this.highest_nontransmitting_chunk = y;
+	}
+
 	this.data[this.indexOf(x, y, z)] = type;
 };
 
@@ -72,7 +80,7 @@ Chunk.prototype.clearLight = function () {
 			}
 		}
 	}
-}
+};
 
 Chunk.prototype.setSkyLight = function (light) {
 	var x, z, y;
@@ -99,12 +107,12 @@ var ChunkTypes = {
 	ADMINIUM: 0x07,
 	WATER: 0x08,
 
-	GLASS: 0x14,
+	GLASS: 0x14
 };
 
-var transmitsLight = function (type) {
+transmitsLight = function (type) {
 	return type === ChunkTypes.AIR || type === ChunkTypes.GLASS;
-}
+};
 
 exports.ChunkTypes = ChunkTypes;
 exports.Chunk = Chunk;
