@@ -377,6 +377,11 @@ function chat(session, pkt) {
 	}
 }
 
+function disconnect(session, pkt) {
+	session.stream.end();
+	session.closed = true;
+}
+
 var packets = {
 	0x00: keepalive,
 	0x01: login,
@@ -387,6 +392,7 @@ var packets = {
 	0x0d: moveandlook,
 	0x0e: blockdig,
 	0x0f: blockplace,
+	0xff: disconnect
 };
 
 
@@ -412,10 +418,20 @@ function sendTicks() {
 setTimeout(1000, sendTicks());
 
 var server = net.createServer(function(stream) {
+	var clientsession = new session.Session(world, stream);
+	world.sessions.push(clientsession);
+
+
 	stream.on('connect', function () {
 		// ...
 		var f = stream.write;
 		stream.write = function () {
+			// In many places, packet writes are triggered by an incoming request, and are deferred
+			// based on an FS read, or a GZIP compress. By the time the write occured, the socket
+			// may have closed
+			if (clientsession.closed)
+				return;
+
 			var pkt = ps.parsePacketWith(arguments[0], ps.serverPacketStructure);
 
 			if (!masks[pkt.type]) {
@@ -426,8 +442,16 @@ var server = net.createServer(function(stream) {
 		}
 	});
 
-	var clientsession = new session.Session(world, stream);
-	world.sessions.push(clientsession);
+	stream.on('end', function() {
+		clientsession.closed = true;
+		stream.end();
+	});
+
+
+	stream.on('error', function() {
+		clientsession.closed = true;
+		stream.end();
+	});
 
 	var partialData = new Buffer(0);
 	stream.on('data', function (data) {

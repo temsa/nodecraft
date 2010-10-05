@@ -7,6 +7,7 @@ var Session = function(world, stream) {
 	this.stream = stream;
 	this.uid = world.uidgen.allocate();
 	this.outgoingQueue = [];
+	this.closed = false;
 };
 
 Session.prototype = new EventEmitter();
@@ -21,7 +22,15 @@ Session.prototype.pump = function()
 	var item = this.outgoingQueue.shift();
 	var me = this;
 
-	item(function() { me.pump(); });
+	// Cancel all low-priority sends if the client has disconnected
+	if (this.closed)
+	{
+		this.outgoingQueue = [];
+		return;
+	}
+
+	// Defer the next low-priority item for better server responsiveness
+	item(function() { process.nextTick(function() { me.pump(); }); });
 };
 
 Session.prototype.addOutgoing = function (tocall)
