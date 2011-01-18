@@ -171,7 +171,7 @@ var clientPacketStructure = {
 
 var serverPacketStructure = {
 	0x00: [],
-	0x01: [int('playerID'), str('serverName'), str('motd'), long("mapSeed"), byte('dimensions')],
+	0x01: [int('playerID'), str('serverName'), str('motd'), long("mapSeed"), byte('dimension')],
 	0x02: [str('serverID')],
 	0x03: [str('message')],
 	0x04: [long('time')],

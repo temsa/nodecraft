@@ -517,5 +517,7 @@ for (var maskidx in cfg) {
 var listenOn = process.argv[2] || 'localhost';
 
 sys.puts('Nodecraft '+'v0.1'.bold.red+' starting up.')
+
+// TODO make port an option
 server.listen(25566, listenOn);
 sys.puts('Listening on ' + listenOn + ':25565'.bold.grey + '...');
