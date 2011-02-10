@@ -15,13 +15,11 @@ Packet = function (data) {
 }
 
 Packet.prototype.needs = function (nBytes) {
-	if (this.data.length - this.cursor < nBytes)
-		throw Error("oob");
+	if (this.data.length - this.cursor < nBytes) throw Error("oob");
 }
 
 var packString = function (str) {
-	if (!(str instanceof Buffer))
-		str = new Buffer(str);
+	if (!(str instanceof Buffer)) str = new Buffer(str);
 	return concat(makers['short'](str.length), str);
 }
 var unpackString = function (pkt) {
@@ -32,8 +30,7 @@ var unpackString = function (pkt) {
 	return str;
 }
 var packIntString = function (str) {
-	if (!(str instanceof Buffer))
-		str = new Buffer(str);
+	if (!(str instanceof Buffer)) str = new Buffer(str);
 	return concat(makers['int'](str.length), str);
 }
 var unpackIntString = function (pkt) {
@@ -66,7 +63,11 @@ var unpackBlockArr = function (pkt) {
 		var x = (coord & 0xf000) >> 12;
 		var z = (coord & 0xf00) >> 8;
 		var y = (coord & 0xff);
-		blks.push({x: x, z: z, y: y});
+		blks.push({
+			x: x,
+			z: z,
+			y: y
+		});
 	}
 	for (var i = 0; i < len; i++) {
 		blks[i].type = parsers.byte(pkt);
@@ -104,17 +105,20 @@ var packItems = function (items) {
 var unpackMultiBlocks = function (pkt) {
 	var blocks = [];
 	var numBlocks = parsers.short(pkt);
-	for (var i = 0; i < numBlocks; i++)
-	{
+	for (var i = 0; i < numBlocks; i++) {
 		coord = parsers.short(pkt);
-		blocks.push({x: (coord >> 12), z: ((coord >> 8) & 0xF), y: (coord & 0xFF)})
+		blocks.push({
+			x: (coord >> 12),
+			z: ((coord >> 8) & 0xF),
+			y: (coord & 0xFF)
+		})
 	}
 	for (var i = 0; i < numBlocks; i++)
-		blocks[i].type = parsers.byte(pkt);
-	
+	blocks[i].type = parsers.byte(pkt);
+
 	for (var i = 0; i < numBlocks; i++)
-		blocks[i].meta = parsers.byte(pkt);
-	
+	blocks[i].meta = parsers.byte(pkt);
+
 	return blocks;
 }
 
@@ -123,50 +127,88 @@ var unpackItems = function (pkt) {
 	var numItems = parsers.short(pkt);
 	for (var i = 0; i < numItems; i++) {
 		var id = parsers.short(pkt),
-		    count, health;
+			count, health;
 		if (id != -1) {
 			count = parsers.byte(pkt);
 			health = parsers.short(pkt);
 		}
-		items.push({id: id, count: count, health: health});
+		items.push({
+			id: id,
+			count: count,
+			health: health
+		});
 	}
 	return items;
 }
 
-function byte(name) { return ['byte', name]; }
-function short(name) { return ['short', name]; }
-function int(name) { return ['int', name]; }
-function long(name) { return ['long', name]; }
-function str(name) { return ['str', name]; }
-function bool(name) { return ['bool', name]; }
-function double(name) { return ['double', name]; }
-function float(name) { return ['float', name]; }
-function items(name) { return ['items', name]; }
-function multiblock(name) { return ['multiblock', name]; }
-function intstr(name) { return ['intstr', name]; }
-function blockarr(name) { return ['blockarr', name]; }
+function byte(name) {
+	return ['byte', name];
+}
+
+function short(name) {
+	return ['short', name];
+}
+
+function int(name) {
+	return ['int', name];
+}
+
+function long(name) {
+	return ['long', name];
+}
+
+function str(name) {
+	return ['str', name];
+}
+
+function bool(name) {
+	return ['bool', name];
+}
+
+function double(name) {
+	return ['double', name];
+}
+
+function float(name) {
+	return ['float', name];
+}
+
+function items(name) {
+	return ['items', name];
+}
+
+function multiblock(name) {
+	return ['multiblock', name];
+}
+
+function intstr(name) {
+	return ['intstr', name];
+}
+
+function blockarr(name) {
+	return ['blockarr', name];
+}
 
 var clientPacketStructure = {
 	0x00: [],
 	0x01: [int('protoVer'), str('username'), str('password')],
 	0x02: [str('username')],
 	0x03: [str('message')],
-	0x05: [int('invType'), items('items')],
+	// 0x05: [int('invType'), items('items')],
+	0x05: [int('entityID'), short("slot"), short("itemID"), short("???")],
 	0x0a: [bool('isFlying')],
-	0x0b: [double('x'), double('y'), double('stance'), double('z'),
-	       bool('flying')],
+	0x0b: [double('x'), double('y'), double('stance'), double('z'), bool('flying')],
 	0x0c: [float('rotation'), float('pitch'), bool('flying')],
-	0x0d: [double('x'), double('y'), double('stance'), double('z'),
-	       float('rotation'), float('pitch'), bool('flying')],
+	0x0d: [double('x'), double('y'), double('stance'), double('z'), float('rotation'), float('pitch'), bool('flying')],
 
 	0x0e: [byte('status'), int('x'), byte('y'), int('z'), byte('face')],
 	0x0f: [short('item'), int('x'), byte('y'), int('z'), byte('face')],
 	0x10: [int('uid'), short('item')],
 	0x12: [int('uid'), byte('unk')],
-	0x15: [int('uid'), short('item'), byte('unk'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch'), byte('hvel')], // Hvel is horizontal velocity [undoc'ed on wiki]
-		
-	0xff: [str('message')], // disconnect
-
+	0x15: [int('uid'), short('item'), byte('unk'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch'), byte('hvel')],
+	// Hvel is horizontal velocity [undoc'ed on wiki]
+	0xff: [str('message')],
+	// disconnect
 }
 
 var serverPacketStructure = {
@@ -175,17 +217,18 @@ var serverPacketStructure = {
 	0x02: [str('serverID')],
 	0x03: [str('message')],
 	0x04: [long('time')],
-	0x05: [int('invType'), items('items')],
+	// 0x05: [int('invType'), items('items')],
+	0x05: [int('entityID'), short("slot"), short("itemID"), short("???")],
 	0x06: [int('x'), int('y'), int('z')],
-	0x0d: [double('x'), double('y'), double('stance'), double('z'),
-	       float('rotation'), float('pitch'), bool('flying')],
+	0x0d: [double('x'), double('y'), double('stance'), double('z'), float('rotation'), float('pitch'), bool('flying')],
 	//0x0e: [byte('status'), int('x'), byte('y'), int('z'), byte('face')],
 	//0x0f: [short('id'), int('x'), byte('y'), int('z'), byte('direction')],
 	0x10: [int('uid'), short('item')],
 	0x11: [short('item'), byte('amount'), short('life')],
 	0x12: [int('uid'), byte('unk')],
 	0x14: [int('uid'), str('playerName'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch'), short('curItem')],
-	0x15: [int('uid'), short('item'), byte('unk'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch'), byte('hvel')], // Hvel is horizontal velocity [undoc'ed on wiki]
+	0x15: [int('uid'), short('item'), byte('unk'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch'), byte('hvel')],
+	// Hvel is horizontal velocity [undoc'ed on wiki]
 	0x16: [int('collectedID'), int('collectorID')],
 	0x17: [int('uid'), byte('objType'), int('x'), int('y'), int('z')],
 	0x18: [int('uid'), byte('mobType'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch')],
@@ -195,13 +238,16 @@ var serverPacketStructure = {
 	0x20: [int('uid'), byte('rotation'), byte('pitch')],
 	0x21: [int('uid'), byte('x'), byte('y'), byte('z'), byte('rotation'), byte('pitch')],
 	0x22: [int('uid'), int('x'), int('y'), int('z'), byte('rotation'), byte('pitch')],
-	0x32: [int('x'), int('z'), bool('mode')], // prechunk
-	0x33: [int('x'), short('y'), int('z'), byte('sizeX'), byte('sizeY'),
-	       byte('sizeZ'), intstr('chunk')], // map chunk, gzipped
-	0x34: [int('x'), int('z'), multiblock('blocks')], // multi block change
+	0x32: [int('x'), int('z'), bool('mode')],
+	// prechunk
+	0x33: [int('x'), short('y'), int('z'), byte('sizeX'), byte('sizeY'), byte('sizeZ'), intstr('chunk')],
+	// map chunk, gzipped
+	0x34: [int('x'), int('z'), multiblock('blocks')],
+	// multi block change
 	0x35: [int('x'), byte('y'), int('z'), byte('blockType'), byte('blockMetadata')],
 	0x3b: [int('x'), short('y'), int('z'), str('nbt')],
-	0xff: [str('message')], // disconnect
+	0xff: [str('message')],
+	// disconnect
 }
 
 var packetNames = {
@@ -210,7 +256,8 @@ var packetNames = {
 	0x02: 'HANDSHAKE',
 	0x03: 'CHAT',
 	0x04: 'TIME',
-	0x05: 'INVENTORY',
+	// 0x05: 'INVENTORY',
+	0x05: 'ENTITY_EQUIPMENT',
 	0x06: 'SPAWN_POS',
 	0x0a: 'FLYING',
 	0x0b: 'PLAYER_POSITION',
@@ -292,9 +339,10 @@ exports.parsePacket = function (buf) {
 exports.parsePacketWith = function (buf, structures) {
 	var pkt = new Packet(buf);
 	var struct = structures[pkt.type];
-	if (!struct)
-		throw Error("unknown packet type while parsing: 0x" +pkt.type.toString(16));
-	var pktData = {type: pkt.type};
+	if (!struct) throw Error("unknown packet type while parsing: 0x" + pkt.type.toString(16));
+	var pktData = {
+		type: pkt.type
+	};
 	for (var field in struct) {
 		var type = struct[field][0];
 		var name = struct[field][1];
@@ -310,8 +358,7 @@ exports.makePacket = function (pktData) {
 
 exports.makePacketWith = function (pktData, structures) {
 	var struct = structures[pktData.type];
-	if (!struct)
-		throw Error("unknown packet type while making: 0x" + pkt.type.toString(16));
+	if (!struct) throw Error("unknown packet type while making: 0x" + pkt.type.toString(16));
 	var buf = new Buffer([pktData.type]);
 	for (var field in struct) {
 		var type = struct[field][0];

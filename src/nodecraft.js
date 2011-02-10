@@ -4,18 +4,17 @@
 	require.paths.push(path.normalize(lib_path));
 })();
 
-var sys = require('sys')
-  , net = require('net')
-  , colors = require('colors')
-  , zip = require('compress')
-  , fs = require('fs')
-  , ps = require('./protocol')
-  , chunk = require('./chunk')
-  , session = require('./session')
-  , terrain = require('./terrain')
-  , uniqueid = require('./uniqueid')
-  , entities = require('./entities')
-  ;
+var sys = require('sys'),
+	net = require('net'),
+	colors = require('colors'),
+	zip = require('compress'),
+	fs = require('fs'),
+	ps = require('./protocol'),
+	chunk = require('./chunk'),
+	session = require('./session'),
+	terrain = require('./terrain'),
+	uniqueid = require('./uniqueid'),
+	entities = require('./entities');
 
 
 var enableProtocolDebug = 1;
@@ -23,26 +22,22 @@ var enableChunkPreDebug = 0;
 var enableTerrainModsDebug = 0;
 
 
-function protodebug()
-{
-	if (enableProtocolDebug)
-		sys.debug.apply(sys, arguments);
+function protodebug() {
+	if (enableProtocolDebug) sys.debug.apply(sys, arguments);
 }
 
-function chunkpredebug()
-{
-	if (enableChunkPreDebug)
-		sys.debug.apply(sys, arguments);
+function chunkpredebug() {
+	if (enableChunkPreDebug) sys.debug.apply(sys, arguments);
 }
 
-function terrainmodsdebug()
-{
-	if (enableTerrainModsDebug)
-		sys.debug.apply(sys, arguments);
+function terrainmodsdebug() {
+	if (enableTerrainModsDebug) sys.debug.apply(sys, arguments);
 }
 
 
 // TODO: put this useful function somewhere else
+
+
 function concat(buf1, buf2) {
 	var buf = new Buffer(buf1.length + buf2.length);
 	buf1.copy(buf, 0, 0);
@@ -62,7 +57,7 @@ function handshake(session, pkt) {
 }
 
 
-function composeTerrainPacket(cb, session, x,z) {
+function composeTerrainPacket(cb, session, x, z) {
 	var zippedChunk = new Buffer(0);
 	var gzip = new zip.GzipStream(zip.Z_DEFAULT_COMPRESSION, zip.MAX_WBITS);
 	gzip.on('data', function (data) {
@@ -70,41 +65,47 @@ function composeTerrainPacket(cb, session, x,z) {
 	}).on('error', function (err) {
 		throw err;
 	}).on('end', function () {
-		
-		chunkpredebug("X: "+x+" Z: "+z);
+
+		chunkpredebug("X: " + x + " Z: " + z);
 		session.stream.write(ps.makePacket({
 			type: 0x33,
-			x: x, z: z, y: 0,
-			sizeX: 15, sizeY: 127, sizeZ: 15, // +1 to all
+			x: x,
+			z: z,
+			y: 0,
+			sizeX: 15,
+			sizeY: 127,
+			sizeZ: 15,
+			// +1 to all
 			chunk: zippedChunk
 		}));
 		cb();
 	});
 
-	session.world.terrain.getChunk(x,z, function(chunk_data) {	
-			gzip.write(chunk_data.data);
-			gzip.close();
-			});
+	session.world.terrain.getChunk(x, z, function (chunk_data) {
+		gzip.write(chunk_data.data);
+		gzip.close();
+	});
 }
 
 function login(session, pkt) {
-	sys.print("Protocol version: " + pkt.protoVer +
-	          "\nUsername: " + pkt.username +
-	          "\nPassword: " + pkt.password + "\n");
+	sys.print("Protocol version: " + pkt.protoVer + "\nUsername: " + pkt.username + "\nPassword: " + pkt.password + "\n");
 
 	session.username = pkt.username;
-	session.password = pkt.password;
-	/* TODO: Add whitelist check here */
+	session.password = pkt.password; /* TODO: Add whitelist check here */
 
 	session.stream.write(ps.makePacket({
 		type: 0x01,
 		playerID: 0x0,
 		serverName: '',
 		motd: '',
+		mapSeed: 0,
+		dimension: 0
 	}));
 	session.stream.write(ps.makePacket({
 		type: 0x06,
-		x: 0, y: 0, z: 0
+		x: 0,
+		y: 0,
+		z: 0
 	}));
 	session.stream.write(ps.makePacket({
 		type: 0x03,
@@ -117,11 +118,14 @@ function login(session, pkt) {
 			session.stream.write(ps.makePacket({
 				type: 0x32,
 				mode: true,
-				x: x, z: z
+				x: x,
+				z: z
 			}));
 		}
 	}
 
+/*
+	i don't think this block is needed with the change to packet 0x05 and server side inventory 
 	var items = [];
 	for (var i = 0; i < 36; i++) {
 		items.push({id: -1});
@@ -148,19 +152,19 @@ function login(session, pkt) {
 		count: 4,
 		items: items,
 	}));
+	end block
+	*/
 
 	/* Fast start */
 	for (var x = -1 * 16; x < 1 * 16; x += 16) {
-		for (var z = -1 * 16; z < 1 * 16; z += 16) {
-			/* Closure for callback [cannot do anonymously, otherwise we end up with 160,160] */
-			r = function(x,z) {
-				/* Callback to be added to outgoing session task list */
+		for (var z = -1 * 16; z < 1 * 16; z += 16) { /* Closure for callback [cannot do anonymously, otherwise we end up with 160,160] */
+			r = function (x, z) { /* Callback to be added to outgoing session task list */
 				return function (cb) {
-					composeTerrainPacket(cb, session, x,z);
-				}	
+					composeTerrainPacket(cb, session, x, z);
+				}
 			}
-			session.world.terrain.recalculateLighting(x,z, function () {
-				session.addOutgoing(r(x,z));
+			session.world.terrain.recalculateLighting(x, z, function () {
+				session.addOutgoing(r(x, z));
 			});
 		}
 	}
@@ -169,32 +173,33 @@ function login(session, pkt) {
 		send_position_packet = function (posY) {
 			session.stream.write(ps.makePacket({
 				type: 0x0d,
-				x: 0.5, y: posY+4, z: 0.5, stance: 71,
-				rotation: 0, pitch: 0,
+				x: 0.5,
+				y: posY + 4,
+				z: 0.5,
+				stance: 71,
+				rotation: 0,
+				pitch: 0,
 				flying: 0,
 			}));
 			cb();
 		};
-		session.world.terrain.getMaxHeight(0,0,send_position_packet);
+		session.world.terrain.getMaxHeight(0, 0, send_position_packet);
 	};
 
 	session.addOutgoing(get_and_send_position);
 
 	/* Send rest of packets in visible range */
-	for (var x = -10*16; x < 10*16; x += 16) {
-		for (var z = -10*16; z < 10*16; z += 16) {
-			if ((x == -16 || x == 0) && (z == -16 || z == 0))
-				continue;
-			/* Closure for callback [cannot do anonymously, otherwise we end up with 160,160 */
-			r = function(x,z) {
-				/* Callback to be added to outgoing session task list */
+	for (var x = -10 * 16; x < 10 * 16; x += 16) {
+		for (var z = -10 * 16; z < 10 * 16; z += 16) {
+			if ((x == -16 || x == 0) && (z == -16 || z == 0)) continue; /* Closure for callback [cannot do anonymously, otherwise we end up with 160,160 */
+			r = function (x, z) { /* Callback to be added to outgoing session task list */
 				return function (cb) {
-					session.world.terrain.recalculateLighting(x,z, function () {
-						composeTerrainPacket(cb, session, x,z);
+					session.world.terrain.recalculateLighting(x, z, function () {
+						composeTerrainPacket(cb, session, x, z);
 					});
-				}	
+				}
 			}
-			session.addOutgoing(r(x,z));
+			session.addOutgoing(r(x, z));
 		}
 	}
 
@@ -202,73 +207,121 @@ function login(session, pkt) {
 }
 
 var spawn_for_harvest = {
-	1: 4, // Stone -> cobblestone
-	2: 3, // Grass -> dirt
-	3: 3, // Dirt  -> dirt
-	4: 4, // Cobblestone -> cobblestone
-	5: 5, // Wood -> Wood
-	6: 6, // Sapling->Sapling
-	12: 12, // Sand->Sand
-	13: 13, // Gravel->Gravel
-	14: 14, // Gold Ore->Gold Ore
-	15: 15, // Iron Ore->Iron Ore
-	16: 263, // Coal Ore -> Coal
-	17: 17, // Logs -> Logs
-	37: 37, // Flower->Flower
-	38: 38, // Flower->Flower
-	39: 39, // Mushroom->Mushroom
-	40: 40, // Mushroom->Mushroom
+	1: 4,
+	// Stone -> cobblestone
+	2: 3,
+	// Grass -> dirt
+	3: 3,
+	// Dirt  -> dirt
+	4: 4,
+	// Cobblestone -> cobblestone
+	5: 5,
+	// Wood -> Wood
+	6: 6,
+	// Sapling->Sapling
+	12: 12,
+	// Sand->Sand
+	13: 13,
+	// Gravel->Gravel
+	14: 14,
+	// Gold Ore->Gold Ore
+	15: 15,
+	// Iron Ore->Iron Ore
+	16: 263,
+	// Coal Ore -> Coal
+	17: 17,
+	// Logs -> Logs
+	37: 37,
+	// Flower->Flower
+	38: 38,
+	// Flower->Flower
+	39: 39,
+	// Mushroom->Mushroom
+	40: 40,
+	// Mushroom->Mushroom
 };
 
 
 function blockdig(session, pkt) {
-	if (pkt.status == 0x3)
-	{
+	if (pkt.status == 0x3) {
 		terrainmodsdebug("Received packet: " + sys.inspect(pkt));
-		
+
 		/* Get the type that was there */
-		session.world.terrain.getCellType(pkt.x, pkt.y, pkt.z,
-				function (cellType) {
-					/* Blank the cell */
-					session.world.terrain.setCellType(pkt.x,pkt.y,pkt.z,0x0);
+		session.world.terrain.getCellType(pkt.x, pkt.y, pkt.z, function (cellType) { /* Blank the cell */
+			session.world.terrain.setCellType(pkt.x, pkt.y, pkt.z, 0x0);
 
-					/* Reply with block dig notification */
-					/* TODO: terrainSessionTracker should do this by listening to the chunk */
-					session.stream.write(ps.makePacket({
-							type: 0x35,
-							x: pkt.x, y: pkt.y, z: pkt.z, blockType: 0,
-							blockMetadata: 0
-						}));
+			/* Reply with block dig notification */
+			/* TODO: terrainSessionTracker should do this by listening to the chunk */
+			session.stream.write(ps.makePacket({
+				type: 0x35,
+				x: pkt.x,
+				y: pkt.y,
+				z: pkt.z,
+				blockType: 0,
+				blockMetadata: 0
+			}));
 
-					/* Spawn an object to be picked up */
-					if (cellType in spawn_for_harvest)
-					{
-						// Spawn the object
+			/* Spawn an object to be picked up */
+			if (cellType in spawn_for_harvest) {
+				// Spawn the object
+				var newEntity = world.entities.spawnEntity(pkt.x * 32 + 16, pkt.y * 32 + 16, pkt.z * 32 + 16, spawn_for_harvest[cellType], 0, 0, 0);
 
-						var newEntity = world.entities.spawnEntity(pkt.x*32+16, pkt.y*32+16, pkt.z*32+16,
-							spawn_for_harvest[cellType],
-							0,0,0);
-
-						/* TODO - this should be done by something listening on the EntityTracker */
-						session.stream.write(ps.makePacket({
-							type: 0x15,
-							uid: newEntity.uid, item: newEntity.type,
-							x: newEntity.x, y: newEntity.y, z: newEntity.z, rotation: newEntity.rotation, pitch: newEntity.pitch,
-							unk: 1, hvel: newEntity.velocity
-						}));
-					}
-				});
+				/* TODO - this should be done by something listening on the EntityTracker */
+				session.stream.write(ps.makePacket({
+					type: 0x15,
+					uid: newEntity.uid,
+					item: newEntity.type,
+					x: newEntity.x,
+					y: newEntity.y,
+					z: newEntity.z,
+					rotation: newEntity.rotation,
+					pitch: newEntity.pitch,
+					unk: 1,
+					hvel: newEntity.velocity
+				}));
+			}
+		});
 	}
 }
 
-function findBlockCoordsForDirection(x,y,z,face) {
+function findBlockCoordsForDirection(x, y, z, face) {
 	switch (face) {
-		case 0: return {x: x, y: y-1, z: z};
-		case 1: return {x: x, y: y+1, z: z};
-		case 2: return {x: x, y: y, z: z-1};
-		case 3: return {x: x, y: y, z: z+1};
-		case 4: return {x: x-1, y: y, z: z};
-		case 5: return {x: x+1, y: y, z: z};
+	case 0:
+		return {
+			x: x,
+			y: y - 1,
+			z: z
+		};
+	case 1:
+		return {
+			x: x,
+			y: y + 1,
+			z: z
+		};
+	case 2:
+		return {
+			x: x,
+			y: y,
+			z: z - 1
+		};
+	case 3:
+		return {
+			x: x,
+			y: y,
+			z: z + 1
+		};
+	case 4:
+		return {
+			x: x - 1,
+			y: y,
+			z: z
+		};
+	case 5:
+		return {
+			x: x + 1,
+			y: y,
+			z: z
+		};
 	}
 }
 
@@ -276,9 +329,9 @@ function findBlockCoordsForDirection(x,y,z,face) {
 function isUsableObject(type) {
 	var usable_objects = {
 		61: true,
-		62:true,
-		58:true,
-		54:true
+		62: true,
+		58: true,
+		54: true
 	};
 
 	return type in usable_objects;
@@ -288,24 +341,26 @@ function blockplace(session, pkt) {
 	var coords = findBlockCoordsForDirection(pkt.x, pkt.y, pkt.z, pkt.face);
 
 	if (pkt.item == -1) {
-		sys.debug("Player USING block " + pkt.x + " "+pkt.y + " "+pkt.z);
+		sys.debug("Player USING block " + pkt.x + " " + pkt.y + " " + pkt.z);
 		return;
-	
+
 	}
 
-	/* Check to ensure that we're building against a block that can't be "used"
+/* Check to ensure that we're building against a block that can't be "used"
 	 * If we can "use" a block; the build event is sent to tell the server that we're using that block
 	 */
 	checkBlockEventHandler = function (type) {
-		if (isUsableObject(type))
-			return;
+		if (isUsableObject(type)) return;
 
 		session.world.terrain.setCellType(coords.x, coords.y, coords.z, pkt.item);
-	
+
 		/* TODO: TerrainTracker should do this by listening on the chunk and updating all clients that have it when the change goes through */
 		session.stream.write(ps.makePacket({
 			type: 0x35,
-			x: coords.x, y: coords.y, z: coords.z, blockType: pkt.item,
+			x: coords.x,
+			y: coords.y,
+			z: coords.z,
+			blockType: pkt.item,
 			blockMetadata: 0
 		}));
 	};
@@ -313,27 +368,28 @@ function blockplace(session, pkt) {
 	session.world.terrain.getCellType(pkt.x, pkt.y, pkt.z, checkBlockEventHandler);
 }
 
-function flying(session, pkt) {
-}
+function flying(session, pkt) {}
 
 function checkEntities(session, x, y, z) {
-	var pickups = session.world.entities.findPickups(x*32, y*32, z*32);
-	
-	for (var i=0; i<pickups.length; i++) {
-		var item = pickups[i];
-		/* TODO - this should be done by something listening on the EntityTracker */
+	var pickups = session.world.entities.findPickups(x * 32, y * 32, z * 32);
+
+	for (var i = 0; i < pickups.length; i++) {
+		var item = pickups[i]; /* TODO - this should be done by something listening on the EntityTracker */
 		session.stream.write(ps.makePacket({
 			type: 0x16,
-			collectedID: item.uid, collectorID: session.uid
+			collectedID: item.uid,
+			collectorID: session.uid
 		}));
 
 		// Push the packet to the client's inventory
 		session.stream.write(ps.makePacket({
 			type: 0x11,
-			item: item.type, amount:1, life:0
+			item: item.type,
+			amount: 1,
+			life: 0
 		}));
 
-		/* TODO - also should be done by something listening on the EntityTracker - destruction of an item
+/* TODO - also should be done by something listening on the EntityTracker - destruction of an item
 		 * on the server should push the notification to affected clients automatically, without having to do it in every case
 		 * */
 		session.stream.write(ps.makePacket({
@@ -342,9 +398,10 @@ function checkEntities(session, x, y, z) {
 		}));
 
 		session.world.entities.destroyEntity(item.uid);
-	
+
 	}
 }
+
 function moveandlook(session, pkt) {
 	checkEntities(session, pkt.x, pkt.y, pkt.z);
 }
@@ -354,13 +411,14 @@ function playerpos(session, pkt) {
 }
 
 function grantID(session, type, count) {
-	if (typeof(count) == undefined)
-		count = 1;
+	if (typeof(count) == undefined) count = 1;
 
 	session.stream.write(ps.makePacket({
-			type: 0x11,
-			item: type, amount:count, life:0
-		}));
+		type: 0x11,
+		item: type,
+		amount: count,
+		life: 0
+	}));
 }
 
 function chat(session, pkt) {
@@ -405,7 +463,7 @@ world.uidgen = new uniqueid.UniqueIDGenerator();
 world.entities = new entities.EntityTracker(world);
 
 function sendTicks() {
-	for (var i=0; i<world.sessions.length; i++) {
+	for (var i = 0; i < world.sessions.length; i++) {
 		var session = world.sessions[i];
 		session.stream.write(ps.makePacket({
 			type: 0x04,
@@ -417,7 +475,7 @@ function sendTicks() {
 
 setTimeout(1000, sendTicks());
 
-var server = net.createServer(function(stream) {
+var server = net.createServer(function (stream) {
 	var clientsession = new session.Session(world, stream);
 	world.sessions.push(clientsession);
 
@@ -429,26 +487,24 @@ var server = net.createServer(function(stream) {
 			// In many places, packet writes are triggered by an incoming request, and are deferred
 			// based on an FS read, or a GZIP compress. By the time the write occured, the socket
 			// may have closed
-			if (clientsession.closed)
-				return;
+			if (clientsession.closed) return;
 
 			var pkt = ps.parsePacketWith(arguments[0], ps.serverPacketStructure);
 
 			if (!masks[pkt.type]) {
-				protodebug(('Server sent '+('0x'+pkt.type.toString(16)+' '+
-				      ps.packetNames[pkt.type]).bold+': ' + sys.inspect(pkt)).green);
+				protodebug(('Server sent ' + ('0x' + pkt.type.toString(16) + ' ' + ps.packetNames[pkt.type]).bold + ': ' + sys.inspect(pkt)).green);
 			}
 			f.apply(stream, arguments);
 		}
 	});
 
-	stream.on('end', function() {
+	stream.on('end', function () {
 		clientsession.closed = true;
 		stream.end();
 	});
 
 
-	stream.on('error', function() {
+	stream.on('error', function () {
 		clientsession.closed = true;
 		stream.end();
 	});
@@ -456,20 +512,17 @@ var server = net.createServer(function(stream) {
 	var partialData = new Buffer(0);
 	stream.on('data', function (data) {
 		//protodebug(("C: " + sys.inspect(data)).cyan);
-
 		var allData = concat(partialData, data);
 		do {
 			try {
 				//sys.debug("parsing: " + sys.inspect(allData));
 				var pkt = ps.parsePacket(allData);
 
-				if (!masks[pkt.type])
-					protodebug(('Client sent '+('0x'+pkt.type.toString(16)+' '+
-					      ps.packetNames[pkt.type]).bold+': ' + sys.inspect(pkt)).cyan);
+				if (!masks[pkt.type]) protodebug(('Client sent ' + ('0x' + pkt.type.toString(16) + ' ' + ps.packetNames[pkt.type]).bold + ': ' + sys.inspect(pkt)).cyan);
 				if (packets[pkt.type]) {
 					packets[pkt.type](clientsession, pkt);
 				} else {
-					protodebug("Unhandled packet".red.bold + " 0x"+pkt.type.toString(16));
+					protodebug("Unhandled packet".red.bold + " 0x" + pkt.type.toString(16));
 				}
 				partialData = new Buffer(0); // successfully used up the partial data
 				//sys.debug("pkt.length = " + pkt.length + " ; allData.length = " + allData.length);
@@ -495,10 +548,9 @@ var server = net.createServer(function(stream) {
 try {
 	var cfg = String(fs.readFileSync("packet_masks")).split('\n')
 } catch (err) {
-	if (err.errno == 2)
-		cfg = [];
+	if (err.errno == 2) cfg = [];
 	else
-		throw err;
+	throw err;
 }
 
 var masks = {};
@@ -508,15 +560,14 @@ for (var i in ps.packetNames) {
 
 for (var maskidx in cfg) {
 	for (var i in ps.packetNames) {
-		if (ps.packetNames[i] == cfg[maskidx])
-			masks[i] = true;
+		if (ps.packetNames[i] == cfg[maskidx]) masks[i] = true;
 	}
 }
 
 
 var listenOn = process.argv[2] || 'localhost';
 
-sys.puts('Nodecraft '+'v0.1'.bold.red+' starting up.')
+sys.puts('Nodecraft ' + 'v0.1'.bold.red + ' starting up.')
 
 // TODO make port an option
 server.listen(25566, listenOn);

@@ -44,9 +44,9 @@ Chunk.prototype.getMetadata = function (x, y, z) {
 
 Chunk.prototype.setLighting = function (x, y, z, lighting) {
 	var idx = this.indexOf(x, y, z),
-	    byte = Math.floor(idx / 2),
-	    top = idx % 2 === 1,
-	    value = this.data[byte + this.sectionSize * 2];
+		byte = Math.floor(idx / 2),
+		top = idx % 2 === 1,
+		value = this.data[byte + this.sectionSize * 2];
 	if (top) {
 		value = (value & 0xf) | ((lighting & 0xf) << 4);
 	} else {
@@ -57,9 +57,9 @@ Chunk.prototype.setLighting = function (x, y, z, lighting) {
 
 Chunk.prototype.getLighting = function (x, y, z) {
 	var idx = this.indexOf(x, y, z),
-	    byte = Math.floor(idx / 2),
-	    top = idx % 2 === 1,
-	    value = this.data[byte + this.sectionSize * 2];
+		byte = Math.floor(idx / 2),
+		top = idx % 2 === 1,
+		value = this.data[byte + this.sectionSize * 2];
 	if (top) {
 		return (value & 0xf0) >> 4;
 	} else {
@@ -71,7 +71,7 @@ Chunk.prototype.clearLight = function () {
 	var x, z, y;
 	for (x = 0; x < this.sizeX; x++) {
 		for (z = 0; z < this.sizeZ; z++) {
-			for (y = this.sizeY-1; y >= 0; y--) {
+			for (y = this.sizeY - 1; y >= 0; y--) {
 				if (transmitsLight(this.getType(x, y, z))) {
 					this.setLighting(x, y, z, 0x1);
 				} else {
@@ -86,7 +86,7 @@ Chunk.prototype.setSkyLight = function (light) {
 	var x, z, y;
 	for (x = 0; x < this.sizeX; x++) {
 		for (z = 0; z < this.sizeZ; z++) {
-			for (y = this.sizeY-1; y >= 0; y--) {
+			for (y = this.sizeY - 1; y >= 0; y--) {
 				if (!transmitsLight(this.getType(x, y, z))) {
 					break;
 				}
